@@ -5,10 +5,11 @@ const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
   class Color extends Model {
     static associate(models) {
-     Color.belongsTo(models.Product, {
-        foreignKey: "productId",
-        sourceKey: "productId",
+      Color.belongsToMany(models.Product, {
+        through: "color_products",
+        foreignKey: "colorId",
         onDelete: "CASCADE",
+        timestamps: false,
       });
     }
   }
@@ -21,14 +22,14 @@ module.exports = (sequelize, DataTypes) => {
         type: Sequelize.INTEGER,
       },
 
-      productId: {
+     name: {
         allowNull: false,
-        type: Sequelize.INTEGER, 
+        type: Sequelize.STRING(20),
       },
     },
     {
       sequelize,
-      timestamps: true,
+      timestamps: false,
       modelName: "Color",
     }
   );

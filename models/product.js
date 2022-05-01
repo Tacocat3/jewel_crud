@@ -4,36 +4,23 @@ const { Model } = require("sequelize");
 
 module.exports = (sequelize, DataTypes) => {
   class Product extends Model {
-    static associate(models) {
-      Product.belongsTo(models.Store, {
-        foreignKey: "storeId",
-        sourceKey: "storeId",
-        onDelete: "CASCADE",
-      });
-      Product.hasMany(models.Category, {
-        foreignKey: "productId",
-        sourceKey: "productId",
-      });
-      Product.hasMany(models.Base, {
-        foreignKey: "productId",
-        sourceKey: "productId",
-      });
-      Product.hasMany(models.Shape, {
-        foreignKey: "productId",
-        sourceKey: "productId",
-      });
-      Product.hasMany(models.Gemstone, {
-        foreignKey: "productId",
-        sourceKey: "productId",
-      });
-      Product.hasMany(models.Color, {
-        foreignKey: "productId",
-        sourceKey: "productId",
-      });
+    static associate(models) {  
       Product.hasMany(models.ProductImg, {
         foreignKey: "productId",
         sourceKey: "productId",
       });
+      Product.belongsToMany(models.Color, {
+        through: "color_products",
+        foreignKey: "productId",
+        onDelete: "CASCADE",
+        timestamps: false,
+      });
+      Product.belongsToMany(models.SubCategory, {
+        through: "subcategories_products",
+        foreignKey: "productId",
+        onDelete: "CASCADE",
+        timestamps: false,
+      })
     }
   }
   Product.init(
@@ -78,13 +65,13 @@ module.exports = (sequelize, DataTypes) => {
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE,
-        defaultValue: Sequelize.literal('now()')
+        defaultValue: Sequelize.literal("now()"),
       },
 
       updatedAt: {
         allowNull: false,
         type: Sequelize.DATE,
-        defaultValue: Sequelize.literal('now()')
+        defaultValue: Sequelize.literal("now()"),
       },
     },
     {

@@ -10,6 +10,12 @@ module.exports = (sequelize, DataTypes) => {
         sourceKey: "categoryId",
         onDelete: "CASCADE",
       });
+      SubCategory.belongsToMany(models.Product, {
+        through: "subcategories_products",
+        foreignKey: "subCategoryId",
+        onDelete: "CASCADE",
+        timestamps: false,
+      })
     }
   }
   SubCategory.init(
@@ -20,15 +26,25 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         type: Sequelize.INTEGER,
       },
-      
+
       categoryId: {
+        allowNull: false,
+        type: Sequelize.INTEGER, 
+      },
+
+      name: {
+        allowNull: false,
+        type: Sequelize.STRING(20), 
+      },
+
+      order: {
         allowNull: false,
         type: Sequelize.INTEGER, 
       },
     },
     {
       sequelize,
-      timestamps: true,
+      timestamps: false,
       modelName: "SubCategory",
     }
   );

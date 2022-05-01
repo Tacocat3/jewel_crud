@@ -5,11 +5,6 @@ const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
   class Category extends Model {
     static associate(models) {
-      Category.belongsTo(models.Product, {
-        foreignKey: "productId",
-        sourceKey: "productId",
-        onDelete: "CASCADE",
-      });
       Category.hasMany(models.SubCategory, {
         foreignKey: "categoryId",
         sourceKey: "categoryId",
@@ -25,14 +20,19 @@ module.exports = (sequelize, DataTypes) => {
         type: Sequelize.INTEGER,
       },
 
-      productId: {
+      name: {
+        allowNull: false,
+        type: Sequelize.STRING(20),
+      },
+
+      order: {
         allowNull: false,
         type: Sequelize.INTEGER, 
       },
     },
     {
       sequelize,
-      timestamps: true,
+      timestamps: false,
       modelName: "Category",
     }
   );
