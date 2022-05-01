@@ -30,10 +30,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(requestMiddleware);
 
-const productRouter = require("./routes/product");
-const storeRouter = require("./routes/store")
+const productRouter = require("./routes/product")
+const settingRouter = require("./routes/setting")
 app.use("/product", [productRouter]);
-app.use("/store", [storeRouter])
+app.use("/setting", [settingRouter])
 app.listen(port, () => {
   console.log("server running on port", port);
 });

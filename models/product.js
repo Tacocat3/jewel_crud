@@ -32,11 +32,6 @@ module.exports = (sequelize, DataTypes) => {
         type: Sequelize.INTEGER,
       },
 
-      storeId: {
-        allowNull: false,
-        type: Sequelize.INTEGER,
-      },
-
       brandName: {
         allowNull: false,
         type: Sequelize.STRING(20),

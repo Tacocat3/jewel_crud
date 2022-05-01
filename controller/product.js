@@ -1,4 +1,4 @@
-const { sequelize } = require("../models");
+const { sequelize, Sequelize } = require("../models");
 const { QueryTypes } = require("sequelize");
 
 //상품 등록하기
@@ -17,8 +17,8 @@ module.exports.showProductDetail = async (req, res) => {
 };
 
 //상품 정보 수정하기
-module.exports.modifyProductInfo = async (req, res) => {
-  await modifyProductInfo(req, res);
+module.exports.modifyingProduct = async (req, res) => {
+  await modifyingProduct(req, res);
 };
 
 //상품 삭제하기
@@ -28,7 +28,6 @@ module.exports.deleteProduct = async (req, res) => {
 
 async function addProduct(req, res) {
   try {
-    const storeId = req.body.storeId;
     const brandName = req.body.brandName;
     const productName = req.body.productName;
     const originalPrice = req.body.price;
@@ -36,17 +35,13 @@ async function addProduct(req, res) {
     const isTodayDelivery = req.body.isTodayDelivery;
     const category = req.body.category;
     const subcategory = req.body.subcategory;
-    const base = req.body.base;
-    const color = req.body.color;
-    const gemstone = req.body.gemstone;
-    const shape = req.body.shape;
+    const colorIds = req.body.colorIds;
 
     const createProduct = await sequelize.query(
-      `INSERT INTO products (storeId, brandName, productName, discount, originalPrice, isTodayDelivery)
-       VALUES (?, ?, ?, ?, ?, ?);`,
+      `INSERT INTO products (brandName, productName, discount, originalPrice, isTodayDelivery)
+       VALUES (?, ?, ?, ?, ?);`,
       {
         replacements: [
-          storeId,
           brandName,
           productName,
           discount,
@@ -56,9 +51,21 @@ async function addProduct(req, res) {
         type: QueryTypes.INSERT,
       }
     );
+    const productId = createProduct[0];
+    const colorIdArr = await colorIds.split(",").map(Number);
+    colorIdArr.forEach(async (colorId) => {
+      const createColors_products = await sequelize.query(
+        `INSERT INTO color_products (colorId, productId)
+        VALUES (?,?);`,
+        {
+          replacements: [colorId, productId],
+          type: QueryTypes.INSERT,
+        }
+      );
+      return createColors_products;
+    });
 
     res.status(200).json({
-      createProduct,
       ok: true,
       message: "creation success",
     });
@@ -76,27 +83,20 @@ async function showProductsList(req, res) {
     const category = req.query.category || null;
     const subcategory = req.query.subcategory || null;
     const isTodayDelivery = req.query.isTodayDelivery || null;
-    const store = req.query.store || null;
-    const base = req.query.base || null;
-    const shape = req.query.shape || null;
-    const gemstone = req.query.gemstone || null;
     const color = req.query.color || null;
     const discount = req.query.discount || null;
     const price = req.query.price || null;
-    let preparedSql = `SELECT * FROM products p
-      LEFT JOIN categories cg ON cg.productId = p.productId
-      LEFT JOIN subcategories scg ON scg.categoryId = cg.categoryId
-      RIGHT JOIN stores s ON s.storeId = p.storeId
-      LEFT JOIN bases b ON b.productId = p.productId
-      LEFT JOIN shapes s2 ON s2.productId = p.productId
-      LEFT JOIN gemstones g ON g.productId = p.productId
-      LEFT JOIN colors c ON c.productId = p.productId
+    let preparedSql = `SELECT p.* FROM products p
+    LEFT JOIN color_products cp ON cp.productId = p.productId
+    LEFT JOIN colors c ON c.colorId = cp.colorId
+    LEFT JOIN subcategories_products scp ON scp.productId = p.productId
+    LEFT JOIN subcategories sc ON scp.subCategoryId = sc.subCategoryId
       `;
     let where_condition = [];
     let finalQuery = [];
     let replacements = [];
 
-    const where = "WHERE";
+    const where = "WHERE ";
 
     finalQuery.push(preparedSql);
 
@@ -112,25 +112,9 @@ async function showProductsList(req, res) {
       where_condition.push(`p.isTodayDelivery = ?`);
       replacements.push(isTodayDelivery);
     }
-    if (store) {
-      where_condition.push(`s.storeId IN (?)`);
-      replacements.push(store);
-    }
-    if (base) {
-      where_condition.push(`b.baseId IN (?)`);
-      replacements.push(base);
-    }
-    if (shape) {
-      where_condition.push(`s2.baseId IN (?)`);
-      replacements.push(shape);
-    }
-    if (gemstone) {
-      where_condition.push(`g.gemstoneId IN (?)`);
-      replacements.push(gemstone);
-    }
     if (color) {
       where_condition.push(`c.colorId IN (?)`);
-      replacements.push(color);
+      replacements.push(color.split(',').map(Number));
     }
     if (discount) {
       where_condition.push(`p.discount >= ?`);
@@ -146,10 +130,19 @@ async function showProductsList(req, res) {
       replacements.push(priceFrom, priceTo);
     }
 
-    finalQuery.push(where + where_condition.join(" AND ")).join("");
+    if (where_condition.length > 0) {
+      finalQuery.push(where + where_condition.join(" AND "));
+    }
+    finalQuery.push(`GROUP BY p.productId;`);
+    preparedSql = finalQuery.join(" ");
+
+    const showProductsListQuery = await sequelize.query(preparedSql, {
+      replacements,
+      type: QueryTypes.SELECT,
+    });
 
     res.status(200).json({
-      finalQuery,
+      showProductsListQuery,
       ok: true,
       message: "successfully loaded",
     });
@@ -167,13 +160,10 @@ async function showProductDetail(req, res) {
     const productId = req.params.productId;
     const productDetail = await sequelize.query(
       `SELECT * FROM products p
-    LEFT JOIN categories cg ON cg.productId = p.productId
-    LEFT JOIN subcategories scg ON scg.categoryId = cg.categoryId
-    RIGHT JOIN stores s ON s.storeId = p.storeId
-    LEFT JOIN bases b ON b.productId = p.productId
-    LEFT JOIN shapes s2 ON s2.productId = p.productId
-    LEFT JOIN gemstones g ON g.productId = p.productId
-    LEFT JOIN colors c ON c.productId = p.productId
+      LEFT JOIN color_products cp ON cp.productId = p.productId
+      LEFT JOIN colors c ON c.colorId = cp.colorId
+      LEFT JOIN subcategories_products scp ON scp.productId = p.productId
+      LEFT JOIN subcategories sc ON scp.subCategoryId = sc.subCategoryId
     WHERE p.productId = ?
     ;`,
       {
@@ -185,38 +175,86 @@ async function showProductDetail(req, res) {
     res.status(200).json({
       productDetail,
       ok: true,
-      message: "successfully loaded"
-    })
+      message: "successfully loaded",
+    });
   } catch (error) {
     res.status(400).json({
       ok: false,
-      message: "Invalid request"
-    })
+      errorMessage: "Invalid request",
+    });
   }
 }
 
-async function modifyProductInfo(req, res) {
+async function modifyingProduct(req, res) {
   try {
-    const productId = req.params.productId
-    const modifyQuery = await sequelize.query(
+    const productId = parseInt(req.params.productId);
+    const brandName = req.body.brandName;
+    const productName = req.body.productName;
+    const originalPrice = req.body.originalPrice;
+    const discount = req.body.discount;
+    const isTodayDelivery = req.body.isTodayDelivery;
+    const category = req.body.category;
+    const subcategory = req.body.subcategory;
+    const colorIds = req.body.colorIds;
+    const modifyingProduct = await sequelize.query(
       `UPDATE products p
-      LEFT JOIN categories cg ON cg.productId = p.productId
-      LEFT JOIN subcategories scg ON scg.categoryId = cg.categoryId
-      RIGHT JOIN stores s ON s.storeId = p.storeId
-      LEFT JOIN bases b ON b.productId = p.productId
-      LEFT JOIN shapes s2 ON s2.productId = p.productId
-      LEFT JOIN gemstones g ON g.productId = p.productId
-      LEFT JOIN colors c ON c.productId = p.productId
-      WHERE p.productId = ? `
-    )
+      SET p.brandName = ?,
+            p.productName = ?,
+            p.discount = ?,
+            p.originalPrice = ?,
+            p.isTodayDelivery = ?,
+            p.updatedAt = now()
+      WHERE productId = ?;`,
+      {
+        replacements: [
+          brandName,
+          productName,
+          discount,
+          originalPrice,
+          isTodayDelivery,
+          productId,
+        ],
+        type: QueryTypes.UPDATE,
+      }
+    );
+    const deleteColor_products = await sequelize.query(
+      `DELETE FROM color_products
+      WHERE productId = ?;`,
+      {
+        replacements: [productId],
+        type: QueryTypes.DELETE,
+      }
+    );
+
+    const colorIdArr = await colorIds.split(",").map(Number);
+    colorIdArr.forEach(async (colorId) => {
+      const remakeColor_products = await sequelize.query(
+        `INSERT INTO color_products (colorId, productId)
+        VALUES (?, ?);`,
+        {
+          replacements: [colorId, productId],
+          type: QueryTypes.INSERT,
+        }
+      );
+      return remakeColor_products;
+    });
+
+    res.status(200).json({
+      ok: true,
+      message: "modifying success",
+    });
   } catch (error) {
-    
+    console.error(error);
+    res.status(400).json({
+      ok: false,
+      errorMessage: "modifying failed",
+    });
   }
 }
 
 async function deleteProduct(req, res) {
   try {
-    const productId = req.params.productId
+    const productId = req.params.productId;
     const deleteQuery = await sequelize.query(
       `DELETE FROM products
       WHERE productId = ?;`,
@@ -224,17 +262,17 @@ async function deleteProduct(req, res) {
         replacements: [productId],
         type: QueryTypes.DELETE,
       }
-    )
-    
+    );
+
     res.status(200).json({
       deleteQuery,
-      ok:true,
-      message: "successfully deleted"
-    })
+      ok: true,
+      message: "successfully deleted",
+    });
   } catch (error) {
     res.status(400).json({
       ok: false,
-      message: "Invalid request"
-    })
+      message: "Invalid request",
+    });
   }
 }
