@@ -28,7 +28,6 @@ async function addColor(req, res) {
       }
     );
     res.status(200).json({
-      addColorQuery,
       ok: true,
       message: "Creation success",
     });
@@ -53,7 +52,6 @@ async function addCategory(req, res) {
       }
     );
     res.status(200).json({
-      addCategoryQuery,
       ok: true,
       message: "creation success",
     });
@@ -79,7 +77,6 @@ async function addSubCategory(req, res) {
       }
     );
     res.status(200).json({
-      addSubCategoryQuery,
       ok: true,
       message: "creation success",
     });

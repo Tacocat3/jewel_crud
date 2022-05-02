@@ -3,18 +3,18 @@ const Sequelize = require("sequelize");
 const { Model } = require("sequelize");
 
 module.exports = (sequelize, DataTypes) => {
-  class ProductImg extends Model {
+  class ProductImage extends Model {
     static associate(models) {
-      ProductImg.belongsTo(models.Product, {
+      ProductImage.belongsTo(models.Product, {
         foreignKey: "productId",
         sourceKey: "productId",
         onDelete: "CASCADE",
       });
     }
   }
-  ProductImg.init(
+  ProductImage.init(
     {
-      productImgId: {
+      productImageId: {
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
@@ -26,16 +26,21 @@ module.exports = (sequelize, DataTypes) => {
         type: Sequelize.INTEGER,
       },
 
-      productImg: {
+      productImageName: {
         allowNull: false,
-        type: Sequelize.BLOB,
-      },
+        type: Sequelize.STRING,
+      },  
+
+      productImageType: {
+        allowNull: false,
+        type: Sequelize.STRING(15),
+      },  
     },
     {
       sequelize,
       timestamps: true,
-      modelName: "ProductImg",
+      modelName: "ProductImage",
     }
   );
-  return ProductImg;
+  return ProductImage;
 };

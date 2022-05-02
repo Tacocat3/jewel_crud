@@ -1,5 +1,6 @@
 const { sequelize } = require("../models");
 const { QueryTypes } = require("sequelize");
+const productImage = require("../models/productImage");
 
 //상품 등록하기
 module.exports.addProduct = async (req, res) => {
@@ -35,21 +36,24 @@ async function addProduct(req, res) {
     const isTodayDelivery = req.body.isTodayDelivery;
     const subCategoryIds = req.body.subCategoryIds;
     const colorIds = req.body.colorIds;
+    const productmage = req.files
+    console.log(req.files)
 
-    if (
-      !brandName ||
-      !productName ||
-      !originalPrice ||
-      !discount ||
-      !isTodayDelivery ||
-      !subCategoryIds ||
-      !colorIds
-    ) {
-      return res.status(400).json({
-        ok: false,
-        errorMessage: "need to fullfil every fields",
-      });
-    }
+    // if (
+    //   !brandName ||
+    //   !productName ||
+    //   !originalPrice ||
+    //   !discount ||
+    //   !isTodayDelivery ||
+    //   !subCategoryIds ||
+    //   !colorIds ||
+    //   !productImage
+    // ) {
+    //   return res.status(400).json({
+    //     ok: false,
+    //     errorMessage: "need to fullfil every fields",
+    //   });
+    // }
 
     const createProduct = await sequelize.query(
       `INSERT INTO products (brandName, productName, discount, originalPrice, isTodayDelivery)
@@ -91,6 +95,7 @@ async function addProduct(req, res) {
       );
       return createSubcategories_products;
     });
+ 
     res.status(200).json({
       ok: true,
       message: "creation success",
@@ -104,12 +109,17 @@ async function addProduct(req, res) {
   }
 }
 
+const productMainImageArr = productImage.main.forEach(async (data) => {
+  
+})
+console.log(productMainImageArr)
+
 async function showProductsList(req, res) {
   try {
-    const category = req.query.category || null;
-    const subCategory = req.query.subCategory || null;
+    const categoryIds = req.query.categoryIds || null;
+    const subCategoryIds = req.query.subCategoryIds || null;
     const isTodayDelivery = req.query.isTodayDelivery || null;
-    const color = req.query.color || null;
+    const colorIds = req.query.colorIds || null;
     const discount = req.query.discount || null;
     const price = req.query.price || null;
     let preparedSql = `SELECT p.* FROM products p
@@ -127,21 +137,21 @@ async function showProductsList(req, res) {
 
     finalQuery.push(preparedSql);
 
-    if (category) {
+    if (categoryIds) {
       where_condition.push(`cg.categoryId IN (?)`);
-      replacements.push(category);
+      replacements.push(categoryIds);
     }
-    if (subCategory) {
+    if (subCategoryIds) {
       where_condition.push(`scg.subCategoryId IN (?)`);
-      replacements.push(subCategory);
+      replacements.push(subCategoryIds);
     }
     if (isTodayDelivery) {
       where_condition.push(`p.isTodayDelivery = ?`);
       replacements.push(isTodayDelivery);
     }
-    if (color) {
+    if (colorIds) {
       where_condition.push(`c.colorId IN (?)`);
-      replacements.push(color.split(",").map(Number));
+      replacements.push(colorIds.split(",").map(Number));
     }
     if (discount) {
       where_condition.push(`p.discount >= ?`);
@@ -163,13 +173,22 @@ async function showProductsList(req, res) {
     finalQuery.push(`GROUP BY p.productId;`);
     preparedSql = finalQuery.join(" ");
 
-    const showProductsListQuery = await sequelize.query(preparedSql, {
+    const showProductsListResult = await sequelize.query(preparedSql, {
       replacements,
       type: QueryTypes.SELECT,
     });
 
+    const isProductListExist = showProductsListResult[0].productId
+
+    if(!isProductListExist){
+      return res.status(400).json({
+        ok: false,
+        errorMessage: "There is no corresponding Data",
+      });
+    }
+
     res.status(200).json({
-      showProductsListQuery,
+      showProductsListResult,
       ok: true,
       message: "successfully loaded",
     });
@@ -205,7 +224,7 @@ async function showProductDetail(req, res) {
     if(!isProductExist){
       return res.status(400).json({
         ok: false,
-        errorMessage: "There is no correct Data",
+        errorMessage: "There is no corresponding Data",
       });
     }
 
@@ -314,6 +333,25 @@ async function modifyingProduct(req, res) {
 async function deleteProduct(req, res) {
   try {
     const productId = req.params.productId;
+
+    const selectQuery = await sequelize.query(
+      `SELECT * FROM products
+      WHERE productId = ?`,
+      {
+        replacements: [productId],
+        type: QueryTypes.SELECT,
+      }
+    )
+
+    console.log(selectQuery.length)
+    
+    if (selectQuery.length <= 0) {
+      return res.status(400).json({
+        ok: false,
+        errorMessage: "There is no corresponding Data",
+      })
+    }
+
     const deleteQuery = await sequelize.query(
       `DELETE FROM products
       WHERE productId = ?;`,
@@ -331,7 +369,7 @@ async function deleteProduct(req, res) {
   } catch (error) {
     res.status(400).json({
       ok: false,
-      message: "Invalid request",
+      errorMessage: "Invalid request",
     });
   }
 }
