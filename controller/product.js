@@ -1,6 +1,6 @@
+const fs = require("fs")
 const { sequelize } = require("../models");
 const { QueryTypes } = require("sequelize");
-const productImage = require("../models/productImage");
 
 //상품 등록하기
 module.exports.addProduct = async (req, res) => {
@@ -36,8 +36,6 @@ async function addProduct(req, res) {
     const isTodayDelivery = req.body.isTodayDelivery;
     const subCategoryIds = req.body.subCategoryIds;
     const colorIds = req.body.colorIds;
-    const productmage = req.files
-    console.log(req.files)
 
     // if (
     //   !brandName ||
@@ -95,24 +93,58 @@ async function addProduct(req, res) {
       );
       return createSubcategories_products;
     });
- 
+
+    // metadata format
+    // {
+    //   fieldname: 'main',
+    //   originalname: '2.PNG',
+    //   encoding: '7bit',
+    //   mimetype: 'image/png',
+    //   destination: './assets/images',
+    //   filename: '1651492134314-2.PNG',
+    //   path: 'assets\\images\\1651492134314-2.PNG',
+    //   size: 131908
+    // }
+    const productMainImageArr = req.files.main.forEach(async (data) => {
+      console.log(data);
+      await sequelize.query(
+        `INSERT INTO productimages (productImageName, productImageType, productId, createdAt, updatedAt)
+    VALUES(?, ?, ?, now(), now());`,
+        {
+          replacements: [data.filename, data.fieldname, productId],
+          type: QueryTypes.INSERT,
+        }
+      );
+    });
+
+    console.log(productMainImageArr);
+
+    const productDescriptionImageArr = req.files.description.forEach(
+      async (data) => {
+        console.log(data);
+        await sequelize.query(
+          `INSERT INTO productimages (productImageName, productImageType, productId, createdAt, updatedAt)
+          VALUES(?, ?, ?, now(), now());`,
+          {
+            replacements: [data.filename, data.fieldname, productId],
+            type: QueryTypes.INSERT,
+          }
+        );
+      }
+    );
+
     res.status(200).json({
       ok: true,
       message: "creation success",
     });
   } catch (error) {
-      console.error(error);
+    console.error(error);
     res.status(400).json({
       ok: false,
       errorMessage: "creation failed",
     });
   }
 }
-
-const productMainImageArr = productImage.main.forEach(async (data) => {
-  
-})
-console.log(productMainImageArr)
 
 async function showProductsList(req, res) {
   try {
@@ -122,12 +154,15 @@ async function showProductsList(req, res) {
     const colorIds = req.query.colorIds || null;
     const discount = req.query.discount || null;
     const price = req.query.price || null;
-    let preparedSql = `SELECT p.* FROM products p
-    LEFT JOIN color_products cp ON cp.productId = p.productId
-    LEFT JOIN colors c ON c.colorId = cp.colorId
-    LEFT JOIN subcategories_products scp ON scp.productId = p.productId
-    LEFT JOIN subcategories scg ON scp.subCategoryId = scg.subCategoryId
-    LEFT JOIN categories cg ON cg.categoryId = scg.categoryId
+    let preparedSql = `
+    SELECT p.*,  JSON_ARRAYAGG(CONCAT('/images/',pi.productImageName)) AS images
+    FROM (
+      SELECT p.* FROM products p
+      LEFT JOIN color_products cp ON cp.productId = p.productId
+      LEFT JOIN colors c ON c.colorId = cp.colorId
+      LEFT JOIN subcategories_products scp ON scp.productId = p.productId
+      LEFT JOIN subcategories scg ON scp.subCategoryId = scg.subCategoryId
+      LEFT JOIN categories cg ON cg.categoryId = scg.categoryId
       `;
     let where_condition = [];
     let finalQuery = [];
@@ -170,7 +205,9 @@ async function showProductsList(req, res) {
     if (where_condition.length > 0) {
       finalQuery.push(where + where_condition.join(" AND "));
     }
-    finalQuery.push(`GROUP BY p.productId;`);
+    finalQuery.push(`GROUP BY p.productId ) p
+    LEFT JOIN productimages pi ON pi.productId = p.productId
+    GROUP BY p.productId;`);
     preparedSql = finalQuery.join(" ");
 
     const showProductsListResult = await sequelize.query(preparedSql, {
@@ -178,9 +215,9 @@ async function showProductsList(req, res) {
       type: QueryTypes.SELECT,
     });
 
-    const isProductListExist = showProductsListResult[0].productId
+    const isProductListExist = showProductsListResult[0].productId;
 
-    if(!isProductListExist){
+    if (!isProductListExist) {
       return res.status(400).json({
         ok: false,
         errorMessage: "There is no corresponding Data",
@@ -205,13 +242,25 @@ async function showProductDetail(req, res) {
   try {
     const productId = req.params.productId;
     const productDetail = await sequelize.query(
-      `SELECT p.*, JSON_ARRAYAGG(c.name) AS colors FROM products p
-      LEFT JOIN color_products cp ON cp.productId = p.productId
-      LEFT JOIN colors c ON c.colorId = cp.colorId
+      `
+      SELECT p.*,  JSON_ARRAYAGG( JSON_OBJECT('subcategory',scg.name,'category', cg.name)) AS categories
+      FROM (
+        SELECT p.*, JSON_ARRAYAGG(CONCAT('/images/',pi.productImageName)) AS images
+        FROM (
+          SELECT p.*, JSON_ARRAYAGG(c.name) AS colors
+          FROM products p
+          LEFT JOIN color_products cp ON cp.productId = p.productId
+          LEFT JOIN colors c ON c.colorId = cp.colorId
+          WHERE p.productId = ?
+          GROUP BY p.productId
+        ) p
+        LEFT JOIN productimages pi ON pi.productId = p.productId
+        GROUP BY p.productId
+      ) p
       LEFT JOIN subcategories_products scp ON scp.productId = p.productId
       LEFT JOIN subcategories scg ON scp.subCategoryId = scg.subCategoryId
       LEFT JOIN categories cg ON cg.categoryId = scg.categoryId
-      WHERE p.productId = ?
+      GROUP BY p.productId
     ;`,
       {
         replacements: [productId],
@@ -219,9 +268,9 @@ async function showProductDetail(req, res) {
       }
     );
 
-    const isProductExist = productDetail[0].productId
+    const isProductExist = productDetail[0].productId;
 
-    if(!isProductExist){
+    if (!isProductExist) {
       return res.status(400).json({
         ok: false,
         errorMessage: "There is no corresponding Data",
@@ -234,6 +283,7 @@ async function showProductDetail(req, res) {
       message: "successfully loaded",
     });
   } catch (error) {
+    console.error(error)
     res.status(400).json({
       ok: false,
       errorMessage: "Invalid request",
@@ -341,16 +391,29 @@ async function deleteProduct(req, res) {
         replacements: [productId],
         type: QueryTypes.SELECT,
       }
-    )
+    );
 
-    console.log(selectQuery.length)
-    
+    console.log(selectQuery.length);
+
     if (selectQuery.length <= 0) {
       return res.status(400).json({
         ok: false,
         errorMessage: "There is no corresponding Data",
-      })
+      });
     }
+
+    const imageSelectQuery = await sequelize.query(
+      `SELECT * FROM productimages
+      WHERE productId = ?;`,
+      {
+        replacements: [productId],
+        type: QueryTypes.SELECT,
+      }
+    )
+
+    imageSelectQuery.forEach(productimage => {
+      fs.unlink ('./assets/images/'+productimage.productImageName, ()=>{})
+    })
 
     const deleteQuery = await sequelize.query(
       `DELETE FROM products
@@ -367,6 +430,7 @@ async function deleteProduct(req, res) {
       message: "successfully deleted",
     });
   } catch (error) {
+    console.error(error)
     res.status(400).json({
       ok: false,
       errorMessage: "Invalid request",

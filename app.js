@@ -29,6 +29,7 @@ const requestMiddleware = (req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(requestMiddleware);
+app.use(express.static('assets'));
 
 const productRouter = require("./routes/product")
 const settingRouter = require("./routes/setting")
