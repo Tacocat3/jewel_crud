@@ -25,7 +25,7 @@ module.exports = (sequelize, DataTypes) => {
         type: Sequelize.STRING(20),
       },
 
-      order: {
+      categoryOrder: {
         allowNull: false,
         type: Sequelize.INTEGER, 
       },

@@ -5,7 +5,7 @@ const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
   class SubCategory extends Model {
     static associate(models) {
-     SubCategory.belongsTo(models.SubCategory, {
+     SubCategory.belongsTo(models.Category, {
         foreignKey: "categoryId",
         sourceKey: "categoryId",
         onDelete: "CASCADE",
@@ -37,7 +37,7 @@ module.exports = (sequelize, DataTypes) => {
         type: Sequelize.STRING(20), 
       },
 
-      order: {
+      subCategoryOrder: {
         allowNull: false,
         type: Sequelize.INTEGER, 
       },

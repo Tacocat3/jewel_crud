@@ -1,5 +1,6 @@
-const { sequelize, Sequelize } = require("../models");
+const { sequelize } = require("../models");
 const { QueryTypes } = require("sequelize");
+const { is } = require("express/lib/request");
 
 //상품 등록하기
 module.exports.addProduct = async (req, res) => {
@@ -33,9 +34,23 @@ async function addProduct(req, res) {
     const originalPrice = req.body.price;
     const discount = req.body.discount;
     const isTodayDelivery = req.body.isTodayDelivery;
-    const category = req.body.category;
-    const subcategory = req.body.subcategory;
+    const subCategoryIds = req.body.subCategoryIds;
     const colorIds = req.body.colorIds;
+
+    if (
+      !brandName ||
+      !productName ||
+      !originalPrice ||
+      !discount ||
+      !isTodayDelivery ||
+      !subCategoryIds ||
+      !colorIds
+    ) {
+      return res.status(400).json({
+        ok: false,
+        errorMessage: "need to fullfil every fields",
+      });
+    }
 
     const createProduct = await sequelize.query(
       `INSERT INTO products (brandName, productName, discount, originalPrice, isTodayDelivery)
@@ -65,12 +80,24 @@ async function addProduct(req, res) {
       return createColors_products;
     });
 
+    const subCategoryIdArr = await subCategoryIds.split(",").map(Number);
+    subCategoryIdArr.forEach(async (subCategoryId) => {
+      const createSubcategories_products = await sequelize.query(
+        `INSERT INTO subcategories_products (subCategoryId, productId)
+        VALUES (?,?);`,
+        {
+          replacements: [subCategoryId, productId],
+          type: QueryTypes.INSERT,
+        }
+      );
+      return createSubcategories_products;
+    });
     res.status(200).json({
       ok: true,
       message: "creation success",
     });
   } catch (error) {
-    console.error(error);
+      console.error(error);
     res.status(400).json({
       ok: false,
       errorMessage: "creation failed",
@@ -81,7 +108,7 @@ async function addProduct(req, res) {
 async function showProductsList(req, res) {
   try {
     const category = req.query.category || null;
-    const subcategory = req.query.subcategory || null;
+    const subCategory = req.query.subCategory || null;
     const isTodayDelivery = req.query.isTodayDelivery || null;
     const color = req.query.color || null;
     const discount = req.query.discount || null;
@@ -90,7 +117,8 @@ async function showProductsList(req, res) {
     LEFT JOIN color_products cp ON cp.productId = p.productId
     LEFT JOIN colors c ON c.colorId = cp.colorId
     LEFT JOIN subcategories_products scp ON scp.productId = p.productId
-    LEFT JOIN subcategories sc ON scp.subCategoryId = sc.subCategoryId
+    LEFT JOIN subcategories scg ON scp.subCategoryId = scg.subCategoryId
+    LEFT JOIN categories cg ON cg.categoryId = scg.categoryId
       `;
     let where_condition = [];
     let finalQuery = [];
@@ -104,9 +132,9 @@ async function showProductsList(req, res) {
       where_condition.push(`cg.categoryId IN (?)`);
       replacements.push(category);
     }
-    if (subcategory) {
-      where_condition.push(`scg.subcategoryId IN (?)`);
-      replacements.push(subcategory);
+    if (subCategory) {
+      where_condition.push(`scg.subCategoryId IN (?)`);
+      replacements.push(subCategory);
     }
     if (isTodayDelivery) {
       where_condition.push(`p.isTodayDelivery = ?`);
@@ -114,7 +142,7 @@ async function showProductsList(req, res) {
     }
     if (color) {
       where_condition.push(`c.colorId IN (?)`);
-      replacements.push(color.split(',').map(Number));
+      replacements.push(color.split(",").map(Number));
     }
     if (discount) {
       where_condition.push(`p.discount >= ?`);
@@ -125,7 +153,7 @@ async function showProductsList(req, res) {
       const priceFrom = priceRange[0];
       const priceTo = priceRange[1];
       where_condition.push(
-        `(p.originalPrice - (p.originalPrice * (p.discount/100))) AS RealPrice Between ? AND ?`
+        `(p.originalPrice - (p.originalPrice * (p.discount/100))) Between ? AND ?`
       );
       replacements.push(priceFrom, priceTo);
     }
@@ -159,18 +187,28 @@ async function showProductDetail(req, res) {
   try {
     const productId = req.params.productId;
     const productDetail = await sequelize.query(
-      `SELECT * FROM products p
+      `SELECT p.*, JSON_ARRAYAGG(c.name) AS colors FROM products p
       LEFT JOIN color_products cp ON cp.productId = p.productId
       LEFT JOIN colors c ON c.colorId = cp.colorId
       LEFT JOIN subcategories_products scp ON scp.productId = p.productId
-      LEFT JOIN subcategories sc ON scp.subCategoryId = sc.subCategoryId
-    WHERE p.productId = ?
+      LEFT JOIN subcategories scg ON scp.subCategoryId = scg.subCategoryId
+      LEFT JOIN categories cg ON cg.categoryId = scg.categoryId
+      WHERE p.productId = ?
     ;`,
       {
         replacements: [productId],
         type: QueryTypes.SELECT,
       }
     );
+
+    const isProductExist = productDetail[0].productId
+
+    if(!isProductExist){
+      return res.status(400).json({
+        ok: false,
+        errorMessage: "There is no correct Data",
+      });
+    }
 
     res.status(200).json({
       productDetail,
@@ -193,9 +231,9 @@ async function modifyingProduct(req, res) {
     const originalPrice = req.body.originalPrice;
     const discount = req.body.discount;
     const isTodayDelivery = req.body.isTodayDelivery;
-    const category = req.body.category;
-    const subcategory = req.body.subcategory;
+    const subcategoryIds = req.body.subcategory;
     const colorIds = req.body.colorIds;
+
     const modifyingProduct = await sequelize.query(
       `UPDATE products p
       SET p.brandName = ?,
@@ -237,6 +275,28 @@ async function modifyingProduct(req, res) {
         }
       );
       return remakeColor_products;
+    });
+
+    const deleteSubcategories_products = await sequelize.query(
+      `DELETE FROM subcategories_products
+      WHERE productId = ?;`,
+      {
+        replacements: [productId],
+        type: QueryTypes.DELETE,
+      }
+    );
+
+    const subCategoryIdArr = await subcategoryIds.split(",").map(Number);
+    subCategoryIdArr.forEach(async (subCategoryId) => {
+      const remakeSubcategories_products = await sequelize.query(
+        `INSERT INTO subcategories_products (subCategoryId, productId)
+        VALUES (?, ?);`,
+        {
+          replacements: [subCategoryId, productId],
+          type: QueryTypes.INSERT,
+        }
+      );
+      return remakeSubcategories_products;
     });
 
     res.status(200).json({
