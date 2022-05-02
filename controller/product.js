@@ -1,6 +1,5 @@
 const { sequelize } = require("../models");
 const { QueryTypes } = require("sequelize");
-const { is } = require("express/lib/request");
 
 //상품 등록하기
 module.exports.addProduct = async (req, res) => {
@@ -231,7 +230,7 @@ async function modifyingProduct(req, res) {
     const originalPrice = req.body.originalPrice;
     const discount = req.body.discount;
     const isTodayDelivery = req.body.isTodayDelivery;
-    const subcategoryIds = req.body.subcategory;
+    const subCategoryIds = req.body.subCategoryIds;
     const colorIds = req.body.colorIds;
 
     const modifyingProduct = await sequelize.query(
@@ -286,7 +285,7 @@ async function modifyingProduct(req, res) {
       }
     );
 
-    const subCategoryIdArr = await subcategoryIds.split(",").map(Number);
+    const subCategoryIdArr = await subCategoryIds.split(",").map(Number);
     subCategoryIdArr.forEach(async (subCategoryId) => {
       const remakeSubcategories_products = await sequelize.query(
         `INSERT INTO subcategories_products (subCategoryId, productId)
