@@ -37,21 +37,21 @@ async function addProduct(req, res) {
     const subCategoryIds = req.body.subCategoryIds;
     const colorIds = req.body.colorIds;
 
-    // if (
-    //   !brandName ||
-    //   !productName ||
-    //   !originalPrice ||
-    //   !discount ||
-    //   !isTodayDelivery ||
-    //   !subCategoryIds ||
-    //   !colorIds ||
-    //   !productImage
-    // ) {
-    //   return res.status(400).json({
-    //     ok: false,
-    //     errorMessage: "need to fullfil every fields",
-    //   });
-    // }
+    if (
+      !brandName ||
+      !productName ||
+      !originalPrice ||
+      !discount ||
+      !isTodayDelivery ||
+      !subCategoryIds ||
+      !colorIds ||
+      !req.files
+    ) {
+      return res.status(400).json({
+        ok: false,
+        errorMessage: "need to fullfil every fields",
+      });
+    }
 
     const createProduct = await sequelize.query(
       `INSERT INTO products (brandName, productName, discount, originalPrice, isTodayDelivery)
