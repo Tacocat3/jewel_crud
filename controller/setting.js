@@ -32,6 +32,7 @@ async function addColor(req, res) {
       message: "Creation success",
     });
   } catch (error) {
+    console.error(error)
     res.status(400).json({
       ok: false,
       errorMessage: "Invalid request",
@@ -56,6 +57,7 @@ async function addCategory(req, res) {
       message: "creation success",
     });
   } catch (error) {
+    console.error(error)
     res.status(400).json({
       ok: false,
       errorMessage: "Invalid request",
@@ -81,6 +83,7 @@ async function addSubCategory(req, res) {
       message: "creation success",
     });
   } catch (error) {
+    console.error(error)
     res.status(400).json({
       ok: false,
       errorMessage: "Invalid request",
